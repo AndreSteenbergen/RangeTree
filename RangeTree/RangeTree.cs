@@ -38,6 +38,8 @@ namespace RangeTree
 
         public IEnumerable<TValue> Values => items.Select(i => i.Value);
 
+        public IEnumerable<RangeValuePair<TKey, TValue>> RangeValues => items;
+
         public int Count => items.Count;
 
         /// <summary>
@@ -58,21 +60,39 @@ namespace RangeTree
 
         public IEnumerable<TValue> Query(TKey value)
         {
-            if (!isInSync)
-                Rebuild();
-
-            return root.Query(value);
+            return this.QueryRangeValueList(value)
+                .Select(rv => rv.Value);
         }
 
         public IEnumerable<TValue> Query(TKey from, TKey to)
         {
+            return this.QueryRangeValueList(from, to)
+                .Select(rv => rv.Value);
+        }
+
+        public IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(
+            TKey value)
+        {
             if (!isInSync)
                 Rebuild();
 
-            return root.Query(from, to);
+            return root.QueryRangeValueList(value);
         }
 
-        public void Add(TKey from, TKey to, TValue value)
+        public IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(
+            TKey from,
+            TKey to)
+        {
+            if (!isInSync)
+                Rebuild();
+
+            return root.QueryRangeValueList(from, to);
+        }
+
+        public void Add(
+            TKey from,
+            TKey to,
+            TValue value)
         {
             if (comparer.Compare(from, to) > 0)
                 throw new ArgumentOutOfRangeException($"{nameof(from)} cannot be larger than {nameof(to)}");
@@ -81,13 +101,15 @@ namespace RangeTree
             items.Add(new RangeValuePair<TKey, TValue>(from, to, value));
         }
 
-        public void Remove(TValue value)
+        public void Remove(
+            TValue value)
         {
             isInSync = false;
             items = items.Where(l => !l.Value.Equals(value)).ToList();
         }
 
-        public void Remove(IEnumerable<TValue> items)
+        public void Remove(
+            IEnumerable<TValue> items)
         {
             isInSync = false;
             this.items = this.items.Where(l => !items.Contains(l.Value)).ToList();

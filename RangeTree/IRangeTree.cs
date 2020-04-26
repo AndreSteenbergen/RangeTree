@@ -17,6 +17,11 @@ namespace RangeTree
         IEnumerable<TValue> Values { get; }
 
         /// <summary>
+        /// Returns all ranges with value
+        /// </summary>
+        IEnumerable<RangeValuePair<TKey, TValue>> RangeValues { get; }
+
+        /// <summary>
         /// Gets the number of elements contained in the tree.
         /// </summary>
         int Count { get; }
@@ -24,13 +29,20 @@ namespace RangeTree
         /// <summary>
         /// Performs a point query with a single value. All items with overlapping ranges are returned.
         /// </summary>
-        IEnumerable<TValue> Query(TKey value);
+        IEnumerable<TValue> Query(
+            TKey value);
 
         /// <summary>
         /// Performs a range query. All items with overlapping ranges are returned.
         /// </summary>
-        IEnumerable<TValue> Query(TKey from, TKey to);
-        
+        IEnumerable<TValue> Query(
+            TKey from,
+            TKey to);
+
+        IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(
+            TKey from,
+            TKey to);
+
         /// <summary>
         /// Adds the specified item.
         /// </summary>

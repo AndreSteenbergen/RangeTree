@@ -97,9 +97,9 @@ namespace RangeTree
         /// Performs a point query with a single value.
         /// All items with overlapping ranges are returned.
         /// </summary>
-        public IEnumerable<TValue> Query(TKey value)
+        public IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(TKey value)
         {
-            var results = new List<TValue>();
+            var results = new List<RangeValuePair<TKey, TValue>>();
 
             // If the node has items, check for leaves containing the value.
             if (items != null)
@@ -110,7 +110,7 @@ namespace RangeTree
                         break;
                     else if (comparer.Compare(value, o.From) >= 0 && comparer.Compare(value, o.To) <= 0)
                     {
-                        results.Add(o.Value);
+                        results.Add(o);
                     }
                 }
             }
@@ -119,9 +119,9 @@ namespace RangeTree
             // where the query value lies compared to the center
             var centerComp = comparer.Compare(value, center);
             if (leftNode != null && centerComp < 0)
-                results.AddRange(leftNode.Query(value));
+                results.AddRange(leftNode.QueryRangeValueList(value));
             else if (rightNode != null && centerComp > 0)
-                results.AddRange(rightNode.Query(value));
+                results.AddRange(rightNode.QueryRangeValueList(value));
 
             return results;
         }
@@ -130,9 +130,9 @@ namespace RangeTree
         /// Performs a range query.
         /// All items with overlapping ranges are returned.
         /// </summary>
-        public IEnumerable<TValue> Query(TKey from, TKey to)
+        public IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(TKey from, TKey to)
         {
-            var results = new List<TValue>();
+            var results = new List<RangeValuePair<TKey, TValue>>();
 
             // If the node has items, check for leaves intersecting the range.
             if (items != null)
@@ -142,16 +142,16 @@ namespace RangeTree
                     if (comparer.Compare(o.From, to) > 0)
                         break;
                     else if (comparer.Compare(to, o.From) >= 0 && comparer.Compare(from, o.To) <= 0)
-                        results.Add(o.Value);
+                        results.Add(o);
                 }
             }
 
             // go to the left or go to the right of the tree, depending
             // where the query value lies compared to the center
             if (leftNode != null && comparer.Compare(from, center) < 0)
-                results.AddRange(leftNode.Query(from, to));
+                results.AddRange(leftNode.QueryRangeValueList(from, to));
             if (rightNode != null && comparer.Compare(to, center) > 0)
-                results.AddRange(rightNode.Query(from, to));
+                results.AddRange(rightNode.QueryRangeValueList(from, to));
 
             return results;
         }
