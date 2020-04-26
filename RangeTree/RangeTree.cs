@@ -1,191 +1,144 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace RangeTree
 {
-    /// <summary>
-    /// The standard range tree implementation. Keeps a root node and forwards all queries to it. Whenenver new items are added or items are removed, the tree goes "out of sync" and is rebuild when it's queried next.
-    /// </summary>
-    /// <typeparam name="TKey">The type of the range.</typeparam>
-    /// <typeparam name="T">The type of the data items.</typeparam>
-    public class RangeTree<TKey, T> : IRangeTree<TKey, T>
-        where TKey : IComparable<TKey>
-        where T : IRangeProvider<TKey>
+    public class RangeTree<TKey, TValue> : IRangeTree<TKey, TValue>
     {
-        private RangeTreeNode<TKey, T> root;
-        private List<T> items;
+        private RangeTreeNode<TKey, TValue> root;
+        private List<RangeValuePair<TKey, TValue>> items;
+        private readonly IComparer<TKey> comparer;
         private bool isInSync;
-        private bool autoRebuild;
-        private IComparer<T> rangeComparer;
 
-        /// <summary>
-        /// Gets a value indicating whether the tree is currently in sync or not. If it is "out of sync"  you can either rebuild it manually (call Rebuild) or let it rebuild automatically when you query it next.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if this instance is in synchronize; otherwise, <c>false</c>.
-        /// </value>
-        public bool IsInSync
-        {
-            get { return isInSync; }
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        /// <summary>
-        /// Gets all of the tree items.
-        /// </summary>
-        /// <value>
-        /// The items.
-        /// </value>
-        public IEnumerable<T> Items
+        public TKey Max
         {
-            get { return items; }
-        }
-
-        /// <summary>
-        /// Gets the count of all tree items.
-        /// </summary>
-        /// <value>
-        /// The count.
-        /// </value>
-        public int Count
-        {
-            get { return items.Count; }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether rebuild automatically. Defaults to true.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [automatic rebuild]; otherwise, <c>false</c>.
-        /// </value>
-        public bool AutoRebuild
-        {
-            get { return autoRebuild; }
-            set { autoRebuild = value; }
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RangeTree{TKey, T}"/> class.
-        /// </summary>
-        /// <param name="rangeComparer">The range comparer.</param>
-        public RangeTree(IComparer<T> rangeComparer)
-        {
-            this.rangeComparer = rangeComparer;
-            root = new RangeTreeNode<TKey, T>(rangeComparer);            
-            items = new List<T>();
-            isInSync = true;
-            autoRebuild = true;    
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RangeTree{TKey, T}"/> class.
-        /// </summary>
-        /// <param name="items">The items.</param>
-        /// <param name="rangeComparer">The range comparer.</param>
-        public RangeTree(IEnumerable<T> items, IComparer<T> rangeComparer)
-        {
-            this.rangeComparer = rangeComparer;
-            root = new RangeTreeNode<TKey, T>(items, rangeComparer);
-            this.items = items.ToList();
-            isInSync = true;
-            autoRebuild = true;
-        }
-
-        /// <summary>
-        /// Performans a "stab" query with a single value. All items with overlapping ranges are returned.
-        /// </summary>
-        /// <param name="value">The value.</param>
-        /// <returns>The resulting <see cref="List{T}"/></returns>
-        public List<T> Query(TKey value)
-        {
-            if (!isInSync && autoRebuild)
+            get
             {
+                if (!isInSync)
+                    Rebuild();
+
+                return root.Max;
+            }
+        }
+
+        public TKey Min
+        {
+            get
+            {
+                if (!isInSync)
+                    Rebuild();
+
+                return root.Min;
+            }
+        }
+
+        public IEnumerable<TValue> Values => items.Select(i => i.Value);
+
+        public IEnumerable<RangeValuePair<TKey, TValue>> RangeValues => items;
+
+        public int Count => items.Count;
+
+        /// <summary>
+        /// Initializes an empty tree.
+        /// </summary>
+        public RangeTree() : this(Comparer<TKey>.Default) { }
+
+        /// <summary>
+        /// Initializes an empty tree.
+        /// </summary>
+        public RangeTree(IComparer<TKey> comparer)
+        {
+            this.comparer = comparer ?? Comparer<TKey>.Default;
+            isInSync = true;
+            root = new RangeTreeNode<TKey, TValue>(this.comparer);
+            items = new List<RangeValuePair<TKey, TValue>>();
+        }
+
+        public IEnumerable<TValue> Query(TKey value)
+        {
+            return this.QueryRangeValueList(value)
+                .Select(rv => rv.Value);
+        }
+
+        public IEnumerable<TValue> Query(TKey from, TKey to)
+        {
+            return this.QueryRangeValueList(from, to)
+                .Select(rv => rv.Value);
+        }
+
+        public IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(
+            TKey value)
+        {
+            if (!isInSync)
                 Rebuild();
-            }
 
-            return root.Query(value);
+            return root.QueryRangeValueList(value);
         }
 
-        /// <summary>
-        /// Performans a range query. All items with overlapping ranges are returned.
-        /// </summary>
-        /// <param name="range">The range.</param>
-        /// <returns>The resulting <see cref="List{T}"/></returns>
-        public List<T> Query(Range<TKey> range)
+        public IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(
+            TKey from,
+            TKey to)
         {
-            if (!isInSync && autoRebuild)
-            {
+            if (!isInSync)
                 Rebuild();
-            }
 
-            return root.Query(range);
+            return root.QueryRangeValueList(from, to);
         }
 
-        /// <summary>
-        /// Rebuilds the tree if it is out of sync.
-        /// </summary>
-        public void Rebuild()
+        public void Add(
+            TKey from,
+            TKey to,
+            TValue value)
         {
-            if (isInSync)
-            {
-                return;
-            }
+            if (comparer.Compare(from, to) > 0)
+                throw new ArgumentOutOfRangeException($"{nameof(from)} cannot be larger than {nameof(to)}");
 
-            root = new RangeTreeNode<TKey, T>(items, rangeComparer);
-            isInSync = true;
+            isInSync = false;
+            items.Add(new RangeValuePair<TKey, TValue>(from, to, value));
         }
 
-        /// <summary>
-        /// Adds the specified item. Tree will go out of sync.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        public void Add(T item)
+        public void Remove(
+            TValue value)
         {
             isInSync = false;
-            items.Add(item);
+            items = items.Where(l => !l.Value.Equals(value)).ToList();
         }
 
-        /// <summary>
-        /// Adds the specified items. Tree will go out of sync.
-        /// </summary>
-        /// <param name="items">The items.</param>
-        public void Add(IEnumerable<T> items)
+        public void Remove(
+            IEnumerable<TValue> items)
         {
             isInSync = false;
-            this.items.AddRange(items);
+            this.items = this.items.Where(l => !items.Contains(l.Value)).ToList();
         }
 
-        /// <summary>
-        /// Removes the specified item. Tree will go out of sync.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        public void Remove(T item)
-        {
-            isInSync = false;
-            items.Remove(item);
-        }
-
-        /// <summary>
-        /// Removes the specified items. Tree will go out of sync.
-        /// </summary>
-        /// <param name="items">The items.</param>
-        public void Remove(IEnumerable<T> items)
-        {
-            isInSync = false;
-
-            foreach (var item in items)
-            {
-                this.items.Remove(item);
-            }
-        }
-
-        /// <summary>
-        /// Clears the tree (removes all items).
-        /// </summary>
         public void Clear()
         {
-            root = new RangeTreeNode<TKey, T>(rangeComparer);            
-            items = new List<T>();
+            root = new RangeTreeNode<TKey, TValue>(comparer);
+            items = new List<RangeValuePair<TKey, TValue>>();
+            isInSync = true;
+        }
+
+        public IEnumerator<RangeValuePair<TKey, TValue>> GetEnumerator()
+        {
+            if (!isInSync)
+                Rebuild();
+
+            return items.GetEnumerator();
+        }
+
+        private void Rebuild()
+        {
+            if (isInSync)
+                return;
+
+            if (items.Count > 0)
+                root = new RangeTreeNode<TKey, TValue>(items, comparer);
+            else
+                root = new RangeTreeNode<TKey, TValue>(comparer);
             isInSync = true;
         }
     }

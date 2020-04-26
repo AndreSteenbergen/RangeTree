@@ -1,78 +1,65 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace RangeTree
 {
     /// <summary>
-    /// Range tree interface.
+    /// The standard range tree implementation. Keeps a root node and forwards all queries to it.
+    /// Whenever new items are added or items are removed, the tree goes temporarily "out of sync", which means that the
+    /// internal index is not updated immediately, but upon the next query operation.    
     /// </summary>
     /// <typeparam name="TKey">The type of the range.</typeparam>
-    /// <typeparam name="T">The type of the data items.</typeparam>
-    public interface IRangeTree<TKey, T>
-        where TKey : IComparable<TKey>
-        where T : IRangeProvider<TKey>
+    /// <typeparam name="TValue">The type of the data items.</typeparam>
+    public interface IRangeTree<TKey, TValue> : IEnumerable<RangeValuePair<TKey, TValue>>
     {
         /// <summary>
-        /// Gets the items.
+        /// Returns all items contained in the tree.
         /// </summary>
-        /// <value>
-        /// The items.
-        /// </value>
-        IEnumerable<T> Items { get; }
+        IEnumerable<TValue> Values { get; }
 
         /// <summary>
-        /// Gets the count.
+        /// Returns all ranges with value
         /// </summary>
-        /// <value>
-        /// The count.
-        /// </value>
+        IEnumerable<RangeValuePair<TKey, TValue>> RangeValues { get; }
+
+        /// <summary>
+        /// Gets the number of elements contained in the tree.
+        /// </summary>
         int Count { get; }
 
         /// <summary>
-        /// Queries the specified value.
+        /// Performs a point query with a single value. All items with overlapping ranges are returned.
         /// </summary>
-        /// <param name="value">The value.</param>
-        /// <returns></returns>
-        List<T> Query(TKey value);
+        IEnumerable<TValue> Query(
+            TKey value);
 
         /// <summary>
-        /// Queries the specified range.
+        /// Performs a range query. All items with overlapping ranges are returned.
         /// </summary>
-        /// <param name="range">The range.</param>
-        /// <returns></returns>
-        List<T> Query(Range<TKey> range);
+        IEnumerable<TValue> Query(
+            TKey from,
+            TKey to);
 
-        /// <summary>
-        /// Rebuilds this instance.
-        /// </summary>
-        void Rebuild();
+        IEnumerable<RangeValuePair<TKey, TValue>> QueryRangeValueList(
+            TKey from,
+            TKey to);
 
         /// <summary>
         /// Adds the specified item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        void Add(T item);
-
-        /// <summary>
-        /// Adds the specified items.
-        /// </summary>
-        /// <param name="items">The items.</param>
-        void Add(IEnumerable<T> items);
-
+        void Add(TKey from, TKey to, TValue value);
+        
         /// <summary>
         /// Removes the specified item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        void Remove(T item);
+        void Remove(TValue item);
 
         /// <summary>
         /// Removes the specified items.
         /// </summary>
-        /// <param name="items">The items.</param>
-        void Remove(IEnumerable<T> items);
+        void Remove(IEnumerable<TValue> items);
 
         /// <summary>
-        /// Clears this instance.
+        /// Removes all elements from the range tree.
         /// </summary>
         void Clear();
     }
